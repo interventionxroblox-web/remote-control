@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Remote Control</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body { font-family: Arial; background: #1e1e1e; color: white; padding: 20px; }
+    h1 { color: #4fc3f7; }
+    .machine { background: #2d2d2d; padding: 15px; margin: 10px 0; border-radius: 8px; }
+    button { background: #4fc3f7; color: black; border: none; padding: 8px 16px; 
+             border-radius: 5px; cursor: pointer; margin: 5px; }
+    button:hover { background: #0288d1; color: white; }
+    #ecran { width: 100%; border: 2px solid #4fc3f7; border-radius: 8px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>🖥️ Remote Control</h1>
+  <h2>Machines connectées :</h2>
+  <div id="liste_machines">Aucune machine connectée...</div>
+  <div id="zone_ecran" style="display:none">
+    <h2>Écran de : <span id="nom_machine"></span></h2>
+    <img id="ecran" src="" alt="Écran distant"/>
+  </div>
+
+  <script>
+    const socket = io();
+    let machineSelectionnee = null;
+
+    socket.on('liste_machines', (machines) => {
+      const div = document.getElementById('liste_machines');
+      div.innerHTML = '';
+      const ids = Object.keys(machines);
+      if (ids.length === 0) {
+        div.innerHTML = 'Aucune machine connectée...';
+        return;
+      }
+      ids.forEach(id => {
+        const m = machines[id];
+        div.innerHTML += `
+          <div class="machine">
+            <strong>${m.nom}</strong> — 
+            ${m.autorise ? '✅ Autorisé' : '⏳ Non autorisé'}
+            <br>
+            <button onclick="demanderAutorisation('${id}')">🔐 Demander accès</button>
+            <button onclick="connecter('${id}', '${m.nom}')">🖥️ Voir l'écran</button>
+          </div>`;
+      });
+    });
+
+    function demanderAutorisation(id) {
+      socket.emit('demande_autorisation', { id });
+      alert('Demande envoyée ! La personne doit accepter sur son PC.');
+    }
+
+    socket.on('resultat_autorisation', (data) => {
+      if (data.accepte) {
+        alert('✅ Accès accordé !');
+      } else {
+        alert('❌ Accès refusé.');
+      }
+    });
+
+    function connecter(id, nom) {
+      machineSelectionnee = id;
+      document.getElementById('nom_machine').innerText = nom;
+      document.getElementById('zone_ecran').style.display = 'block';
+      socket.on('screenshot_' + id, (image) => {
+        document.getElementById('ecran').src = 'data:image/jpeg;base64,' + image;
+      });
+    }
+
+    document.addEventListener('mousemove', (e) => {
+      if (!machineSelectionnee) return;
+      const img = document.getElementById('ecran');
+      const rect = img.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width;
+      const y = (e.clientY - rect.top) / rect.height;
+      socket.emit('commande', { id: machineSelectionnee, type: 'souris', x, y });
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (!machineSelectionnee) return;
+      socket.emit('commande', { id: machineSelectionnee, type: 'clavier', key: e.key });
+    });
+  </script>
+</body>
+</html>
