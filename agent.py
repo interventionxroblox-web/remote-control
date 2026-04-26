@@ -8,7 +8,7 @@ import io
 from pynput import mouse, keyboard
 
 # Configuration
-SERVER_URL = 'http://localhost:3000'
+SERVER_URL = 'https://remote-control-production-e384.up.railway.app'
 MACHINE_ID = str(uuid.uuid4())
 MACHINE_NOM = platform.node()
 
